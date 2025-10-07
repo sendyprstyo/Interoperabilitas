@@ -1,0 +1,125 @@
+<?php
+header("Content-Type: application/json");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE");
+header("Access-Control-Allow-Headers: Content-Type");
+
+$connection = mysqli_connect("localhost", "root", "", "rest_api");
+
+if (!$connection) {
+    die(json_encode(["status" => 0, "message" => "Database connection failed!"]));
+}
+
+// Identifikasi method HTTP
+$request_method = $_SERVER["REQUEST_METHOD"];
+
+switch ($request_method) {
+    case 'GET':
+        if (!empty($_GET["product_id"])) {
+            $product_id = intval($_GET["product_id"]);
+            get_products($product_id);
+        } else {
+            get_products();
+        }
+        break;
+
+    case 'POST':
+        insert_product();
+        break;
+
+    case 'PUT':
+        $product_id = intval($_GET["product_id"] ?? 0);
+        update_product($product_id);
+        break;
+
+    case 'DELETE':
+        $product_id = intval($_GET["product_id"] ?? 0);
+        delete_product($product_id);
+        break;
+
+    default:
+        echo json_encode(["status" => 0, "message" => "Invalid Request Method"]);
+        break;
+}
+
+// ---------- Fungsi GET ----------
+function get_products($product_id = 0)
+{
+    global $connection;
+    $query = "SELECT * FROM products";
+    if ($product_id != 0) {
+        $query .= " WHERE id = $product_id";
+    }
+
+    $response = [];
+    $result = mysqli_query($connection, $query);
+    while ($row = mysqli_fetch_assoc($result)) {
+        $response[] = $row;
+    }
+
+    echo json_encode($response);
+}
+
+// ---------- Fungsi POST ----------
+function insert_product()
+{
+    global $connection;
+
+    $product_name = $_POST["product_name"] ?? '';
+    $price = $_POST["price"] ?? 0;
+    $quantity = $_POST["quantity"] ?? 0;
+    $seller = $_POST["seller"] ?? '';
+
+    if (empty($product_name) || empty($seller)) {
+        echo json_encode(["status" => 0, "message" => "Data tidak lengkap"]);
+        return;
+    }
+
+    $query = "INSERT INTO products (product_name, price, quantity, seller)
+              VALUES ('$product_name', '$price', '$quantity', '$seller')";
+
+    if (mysqli_query($connection, $query)) {
+        echo json_encode(["status" => 1, "message" => "Produk berhasil ditambahkan"]);
+    } else {
+        echo json_encode(["status" => 0, "message" => "Gagal menambahkan produk"]);
+    }
+}
+
+// ---------- Fungsi PUT ----------
+function update_product($product_id)
+{
+    global $connection;
+    parse_str(file_get_contents("php://input"), $put_data);
+
+    $product_name = $put_data["product_name"] ?? '';
+    $price = $put_data["price"] ?? 0;
+    $quantity = $put_data["quantity"] ?? 0;
+    $seller = $put_data["seller"] ?? '';
+
+    $query = "UPDATE products SET 
+              product_name='$product_name', 
+              price='$price', 
+              quantity='$quantity', 
+              seller='$seller' 
+              WHERE id=$product_id";
+
+    if (mysqli_query($connection, $query)) {
+        echo json_encode(["status" => 1, "message" => "Produk berhasil diperbarui"]);
+    } else {
+        echo json_encode(["status" => 0, "message" => "Gagal memperbarui produk"]);
+    }
+}
+
+// ---------- Fungsi DELETE ----------
+function delete_product($product_id)
+{
+    global $connection;
+    $query = "DELETE FROM products WHERE id=$product_id";
+
+    if (mysqli_query($connection, $query)) {
+        echo json_encode(["status" => 1, "message" => "Produk berhasil dihapus"]);
+    } else {
+        echo json_encode(["status" => 0, "message" => "Gagal menghapus produk"]);
+    }
+}
+?>
